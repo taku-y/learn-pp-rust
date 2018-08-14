@@ -20,14 +20,16 @@ pub enum ProcessMode {
 #[derive(Debug)]
 pub struct RandomVarManager<'a> {
     pub samples: HashMap<&'a str, Node>,
-    pub logp: Node
+    pub logps: HashMap<&'a str, Node>,
+    pub namespace_logp: &'a str,
 }
 
 impl<'a> RandomVarManager<'a> {
     pub fn new() -> Self {
         RandomVarManager {
             samples: HashMap::new(),
-            logp: F::constant([], 0.0),
+            logps: HashMap::new(),
+            namespace_logp: "",
         }
     }
 
@@ -53,10 +55,12 @@ impl<'a> RandomVarManager<'a> {
             ProcessMode::LOGP => {
                 let sample = match self.samples.get(name) {
                     Some(sample) => sample,
-                    _ => panic!("Sample of RV '{}' not found", name),
+                    _ => panic!("Sample of RV '{}' was not found", name),
                 };
-                let logp = &(self.logp) + dist.logp(sample);
-                self.logp = logp;
+                let logp = dist.logp(sample);
+                let mut name_ = self.namespace_logp.to_owned();
+                name_.push_str(name);
+                self.logps.insert(name_, logp);
                 &sample
             }
         }
