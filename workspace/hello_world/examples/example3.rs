@@ -79,16 +79,16 @@ fn model(params: &[&Node; 4], rvm: &mut RandomVarManager, mode: ProcessMode,
     let ys = &minibatch.ys;
 
     // Set namespace when computing log probability
-    rvm.namespace_logp = "model/";
+    rvm.namespace_logp = "model/".to_string();
 
     // Observation
-    rvm.add_sample("y", F::input(([], n_samples), ys));
+    rvm.add_sample("y".to_string(), F::input(([], ys.len() as u32), ys));
 
     // Linear regression model
-    let w = rvm.process("w", &Normal::new(0.0, 1.0), mode);
-    let b = rvm.process("b", &Normal::new(0.0, 1.0), mode);
+    let w = rvm.process("w".to_string(), &Normal::new(0.0, 1.0), mode);
+    let b = rvm.process("b".to_string(), &Normal::new(0.0, 1.0), mode);
     let ys_pred = w * xs + b;
-    let _ = rvm.process("y", &Normal::new(ys_pred, 0.1));
+    let _ = rvm.process("y".to_string(), &Normal::new(ys_pred, 0.1), mode);
 }
 
 // Variational distribution
@@ -99,10 +99,10 @@ fn vdist(params: &[&Node; 4], rvm: &mut RandomVarManager, mode: ProcessMode) {
     let b_s = params[3];
 
     // Set namespace when computing log probability
-    rvm.namespace_logp = "vdist/";
+    rvm.namespace_logp = "vdist/".to_string();
 
-    let _ = rvm.process("w", &Normal::new(w_m, w_s), mode);
-    let _ = rvm.process("b", &Normal::new(b_m, b_s), mode);
+    let _ = rvm.process("w".to_string(), &Normal::new(w_m, w_s), mode);
+    let _ = rvm.process("b".to_string(), &Normal::new(b_m, b_s), mode);
 }
 
 fn main() {
@@ -154,10 +154,11 @@ fn main() {
             // Compute ELBO
             vdist(&params, &mut rvm, ProcessMode::LOGP);
             model(&params, &mut rvm, ProcessMode::LOGP, &mb);
-            let elbo = rvm.sum_logps("model/") - rvm.sum_logps("vdist/");
+            // TODO: Implement sum_logps()
+            //let elbo = rvm.sum_logps("model/".to_string()) - rvm.sum_logps("vdist/".to_string());
 
             // Compute negative ELBO as loss function
-            let loss = -1 * elbo;
+            //let loss = -1 * elbo;
         }
     }
 }
