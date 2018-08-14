@@ -1,6 +1,7 @@
 ## Minibatch
 ```rust
     // Define minibatch
+    // NOTE: Each minibatch needs a copy of the original dataset 
     struct MyMiniBatch {
         xs: Vec<f32>,
         ys: Vec<f32>,
