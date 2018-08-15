@@ -12,6 +12,11 @@ use primitiv::node_functions::random as R;
 
 pub mod utils;
 
+pub fn const_node(v: f32) -> Node {
+    F::constant([], v)
+}
+
+#[derive(Clone, Copy)]
 pub enum ProcessMode {
     LOGP,
     SAMPLE,

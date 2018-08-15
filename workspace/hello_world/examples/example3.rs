@@ -15,7 +15,7 @@ use primitiv::initializers as I;
 use primitiv::node_functions as F;
 use primitiv::optimizers as O;
 
-use hello_world::{RandomVarManager, ProcessMode, Normal};
+use hello_world::{RandomVarManager, ProcessMode, Normal, const_node};
 use hello_world::utils::{MiniBatchedDataset, MiniBatchIterator};
 
 // Define minibatch
@@ -51,9 +51,6 @@ impl MiniBatchedDataset for MyDataSet {
 
 // Create dataset
 fn create_dataset(n_samples: i32, true_w: f32, true_b: f32) -> MyDataSet {
-    let n_samples = 100;
-    let true_w = 2.5 as f32;
-    let true_b = -1.0 as f32;
     let dist_x = NormalInRand::new(0.0, 10.0);
     let dist_e = NormalInRand::new(0.0, 0.1);
     let mut rng = rand::thread_rng();
@@ -69,30 +66,29 @@ fn create_dataset(n_samples: i32, true_w: f32, true_b: f32) -> MyDataSet {
 }
 
 // Bayesian linear regression model
-fn model(params: &[&Node; 4], rvm: &mut RandomVarManager, mode: ProcessMode,
-         minibatch: &MyMiniBatch) {
-    let w_m = params[0];
-    let w_s = params[1];
-    let b_m = params[2];
-    let b_s = params[3];
+fn model(rvm: &mut RandomVarManager, mode: ProcessMode, minibatch: &MyMiniBatch) {
     let xs = &minibatch.xs;
     let ys = &minibatch.ys;
+
+    // Create Nodes for inputs
+    let xs = F::input(([], xs.len() as u32), xs);
+    let ys = F::input(([], ys.len() as u32), ys);
 
     // Set namespace when computing log probability
     rvm.namespace_logp = "model/".to_string();
 
     // Observation
-    rvm.add_sample("y".to_string(), F::input(([], ys.len() as u32), ys));
+    rvm.add_sample("y".to_string(), ys);
 
     // Linear regression model
-    let w = rvm.process("w".to_string(), &Normal::new(0.0, 1.0), mode);
-    let b = rvm.process("b".to_string(), &Normal::new(0.0, 1.0), mode);
+    let w = rvm.process("w".to_string(), &Normal::new(&const_node(0.0), &const_node(1.0)), mode);
+    let b = rvm.process("b".to_string(), &Normal::new(&const_node(0.0), &const_node(1.0)), mode);
     let ys_pred = w * xs + b;
-    let _ = rvm.process("y".to_string(), &Normal::new(ys_pred, 0.1), mode);
+    let _ = rvm.process("y".to_string(), &Normal::new(&ys_pred, &const_node(0.1)), mode);
 }
 
 // Variational distribution
-fn vdist(params: &[&Node; 4], rvm: &mut RandomVarManager, mode: ProcessMode) {
+fn vdist(rvm: &mut RandomVarManager, mode: ProcessMode, params: &[&Node; 4]) {
     let w_m = params[0];
     let w_s = params[1];
     let b_m = params[2];
@@ -135,7 +131,7 @@ fn main() {
 
     // Inference loop
     for _epoch in 0..10 {
-        for mb in MiniBatchIterator::new(5, &dataset, 0) {
+        for minibatch in MiniBatchIterator::new(5, &dataset, 0) {
             g.clear();
 
             // Variational parameters
@@ -149,11 +145,11 @@ fn main() {
             let mut rvm = RandomVarManager::new();
 
             // Take samples of RVs
-            vdist(&params, &mut rvm, ProcessMode::SAMPLE);
+            vdist(&mut rvm, ProcessMode::SAMPLE, &params);
 
             // Compute ELBO
-            vdist(&params, &mut rvm, ProcessMode::LOGP);
-            model(&params, &mut rvm, ProcessMode::LOGP, &mb);
+            vdist(&mut rvm, ProcessMode::LOGP, &params);
+            model(&mut rvm, ProcessMode::LOGP, &minibatch);
             // TODO: Implement sum_logps()
             //let elbo = rvm.sum_logps("model/".to_string()) - rvm.sum_logps("vdist/".to_string());
 
