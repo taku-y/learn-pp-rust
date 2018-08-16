@@ -83,7 +83,7 @@ fn model(rvm: &mut RandomVarManager, mode: ProcessMode, minibatch: &MyMiniBatch)
     // Linear regression model
     let w = rvm.process("w".to_string(), &Normal::new(&const_node(0.0), &const_node(1.0)), mode);
     let b = rvm.process("b".to_string(), &Normal::new(&const_node(0.0), &const_node(1.0)), mode);
-    let ys_pred = w.as_ref() * xs + b.as_ref();
+    let ys_pred = w * xs + b;
     let _ = rvm.process("y".to_string(), &Normal::new(&ys_pred, &const_node(0.1)), mode);
 }
 

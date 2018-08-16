@@ -26,31 +26,40 @@ pub enum ProcessMode {
 }
 
 #[derive(Debug)]
-pub struct RandomVarManager {
-    pub samples: RefCell<HashMap<String, Rc<Node>>>,
-    pub logps: RefCell<HashMap<String, Rc<Node>>>,
-    pub namespace_logp: String,
+pub struct RvNode(Rc<Node>);
+
+impl RvNode {
+    fn new(node: Node) -> Self {
+        RvNode(Rc::new(node))
+    }
+
+    fn clone(&self) -> Self {
+        RvNode(Rc::clone(&self.0))
+    }
 }
 
-////struct A {}
-////
-////impl ops::Mul<Node> for A {
-////    type Output = ();
-////
-////    fn mul(self, rhs: Node) {
-////        println!("A");
-////    }
-////}
-//
-//trait LocalMarker {}
-//impl LocalMarker for Rc
-//impl<T: LocalMarker> ops::Mul<Node> for Rc<Node> {
-//    type Output = Node;
-//
-//    fn mul(self, rhs: Node) -> Node {
-//        Rc::into_raw(self) * rhs
-//    }
-//}
+impl ops::Mul<Node> for RvNode {
+    type Output = Node;
+
+    fn mul(self, rhs: Node) -> Node {
+        self.0.as_ref() * rhs
+    }
+}
+
+impl ops::Add<RvNode> for Node {
+    type Output = Node;
+
+    fn add(self, rhs: RvNode) -> Node {
+        self + rhs.0.as_ref()
+    }
+}
+
+#[derive(Debug)]
+pub struct RandomVarManager {
+    pub samples: RefCell<HashMap<String, RvNode>>,
+    pub logps: RefCell<HashMap<String, RvNode>>,
+    pub namespace_logp: String,
+}
 
 impl RandomVarManager {
     pub fn new() -> Self {
@@ -61,18 +70,18 @@ impl RandomVarManager {
         }
     }
 
-    pub fn get_sample(&self, name: &String) -> Rc<Node> {
-        Rc::clone(self.samples.borrow().get(name).
+    pub fn get_sample(&self, name: &String) -> RvNode {
+        RvNode::clone(self.samples.borrow().get(name).
             expect(&format!("Sample of RV '{}' not found", name))
         )
     }
 
     pub fn add_sample(&self, name: String, sample: Node) {
-        self.samples.borrow_mut().insert(name, Rc::new(sample));
+        self.samples.borrow_mut().insert(name, RvNode::new(sample));
     }
 
     pub fn process<'b>(&'b self, name: String, dist: &'b (Distribution + 'b),
-                   mode: ProcessMode) -> Rc<Node> {
+                   mode: ProcessMode) -> RvNode {
         match mode {
             ProcessMode::SAMPLE => {
                 let sample = dist.sample();
@@ -81,10 +90,10 @@ impl RandomVarManager {
             }
             ProcessMode::LOGP => {
                 let sample = self.get_sample(&name);
-                let logp = dist.logp(&sample);
+                let logp = dist.logp(sample.0.as_ref());
                 let mut name_ = self.namespace_logp.to_owned();
                 name_.push_str(&name);
-                self.logps.borrow_mut().insert(name_, Rc::new(logp));
+                self.logps.borrow_mut().insert(name_, RvNode::new(logp));
                 sample
             }
         }
