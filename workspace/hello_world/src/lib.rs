@@ -1,6 +1,9 @@
 extern crate rand;
 extern crate primitiv;
 
+use std::ops;
+use std::rc::Rc;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::f32::consts::PI as PI;
 
@@ -24,33 +27,52 @@ pub enum ProcessMode {
 
 #[derive(Debug)]
 pub struct RandomVarManager {
-    pub samples: HashMap<String, Node>,
-    pub logps: HashMap<String, Node>,
+    pub samples: RefCell<HashMap<String, Rc<Node>>>,
+    pub logps: RefCell<HashMap<String, Rc<Node>>>,
     pub namespace_logp: String,
 }
+
+////struct A {}
+////
+////impl ops::Mul<Node> for A {
+////    type Output = ();
+////
+////    fn mul(self, rhs: Node) {
+////        println!("A");
+////    }
+////}
+//
+//trait LocalMarker {}
+//impl LocalMarker for Rc
+//impl<T: LocalMarker> ops::Mul<Node> for Rc<Node> {
+//    type Output = Node;
+//
+//    fn mul(self, rhs: Node) -> Node {
+//        Rc::into_raw(self) * rhs
+//    }
+//}
 
 impl RandomVarManager {
     pub fn new() -> Self {
         RandomVarManager {
-            samples: HashMap::new(),
-            logps: HashMap::new(),
+            samples: RefCell::new(HashMap::new()),
+            logps: RefCell::new(HashMap::new()),
             namespace_logp: "".to_string(),
         }
     }
 
-    pub fn get_sample(&self, name: &String) -> &Node {
-        match self.samples.get(name) {
-            Some(sample) => sample,
-            _ => panic!("Sample of RV '{}' not found", name)
-        }
+    pub fn get_sample(&self, name: &String) -> Rc<Node> {
+        Rc::clone(self.samples.borrow().get(name).
+            expect(&format!("Sample of RV '{}' not found", name))
+        )
     }
 
-    pub fn add_sample(&mut self, name: String, sample: Node) {
-        self.samples.insert(name, sample);
+    pub fn add_sample(&self, name: String, sample: Node) {
+        self.samples.borrow_mut().insert(name, Rc::new(sample));
     }
 
-    pub fn process<'b>(&mut self, name: String, dist: &'b (Distribution + 'b),
-                   mode: ProcessMode) -> &Node {
+    pub fn process<'b>(&'b self, name: String, dist: &'b (Distribution + 'b),
+                   mode: ProcessMode) -> Rc<Node> {
         match mode {
             ProcessMode::SAMPLE => {
                 let sample = dist.sample();
@@ -58,17 +80,15 @@ impl RandomVarManager {
                 self.get_sample(&name)
             }
             ProcessMode::LOGP => {
-                let sample = match self.samples.get(&name) {
-                    Some(sample) => sample,
-                    _ => panic!("Sample of RV '{}' was not found", name),
-                };
-                let logp = dist.logp(sample);
+                let sample = self.get_sample(&name);
+                let logp = dist.logp(&sample);
                 let mut name_ = self.namespace_logp.to_owned();
                 name_.push_str(&name);
-                self.logps.insert(name_, logp);
-                &sample
+                self.logps.borrow_mut().insert(name_, Rc::new(logp));
+                sample
             }
         }
+        //self.samples.borrow().get(&name).expect(&format!("Sample of RV '{}' not found", &name))
     }
 }
 
