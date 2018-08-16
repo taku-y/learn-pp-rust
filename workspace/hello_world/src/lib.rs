@@ -88,7 +88,6 @@ impl RandomVarManager {
                 sample
             }
         }
-        //self.samples.borrow().get(&name).expect(&format!("Sample of RV '{}' not found", &name))
     }
 }
 
