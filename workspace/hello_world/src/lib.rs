@@ -80,6 +80,15 @@ impl RandomVarManager {
         self.samples.borrow_mut().insert(name, RvNode::new(sample));
     }
 
+    pub fn sum_logps(&self, prefix: &str) {
+        let sum_logp = const_node(0.0);
+
+        for k in self.logps.keys()
+            .filter(|x| x.starts_with(prefix)) {
+            sum_logp += F::sum(self.logps.get(k).unwrap());
+        }
+    }
+
     pub fn process<'b>(&'b self, name: String, dist: &'b (Distribution + 'b),
                    mode: ProcessMode) -> RvNode {
         match mode {
