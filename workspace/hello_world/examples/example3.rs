@@ -119,7 +119,7 @@ fn main() {
     let mut p_b_l = Parameter::from_initializer([], &I::Constant::new(0.01));
 
     // Optimizer
-    let mut optimizer = O::SGD::new(0.0001);
+    let mut optimizer = O::SGD::new(0.000001);
     optimizer.add_parameter(&mut p_w_m);
     optimizer.add_parameter(&mut p_w_l);
     optimizer.add_parameter(&mut p_b_m);
@@ -130,8 +130,10 @@ fn main() {
     Graph::set_default(&mut g);
 
     // Inference loop
-    for _epoch in 0..10 {
-        for minibatch in MiniBatchIterator::new(5, &dataset, 0) {
+    for epoch in 0..1000 {
+        let mut loss_epoch = 0.0 as f32;
+
+        for minibatch in MiniBatchIterator::new(20, &dataset, 0) {
             g.clear();
 
             // Variational parameters
@@ -154,7 +156,17 @@ fn main() {
 
             // Compute negative ELBO as loss function
             let loss: Node = -1 * elbo;
-            println!("loss = {:?}", loss.to_float());
+
+            // Do optimization 1-step
+            optimizer.reset_gradients();
+            loss.backward();
+            optimizer.update();
+
+            loss_epoch = loss.to_float();
+        }
+
+        if epoch % 100 == 0 {
+            println!("epoch = {}, loss = {:?}", epoch, loss_epoch);
         }
     }
 }
