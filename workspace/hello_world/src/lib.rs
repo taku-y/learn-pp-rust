@@ -10,6 +10,7 @@ use std::f32::consts::PI as PI;
 //use rand::{Rng, SeedableRng, StdRng};
 
 use primitiv::Node;
+use primitiv::functions as F_;
 use primitiv::node_functions as F;
 use primitiv::node_functions::random as R;
 
@@ -35,6 +36,10 @@ impl RvNode {
 
     fn clone(&self) -> Self {
         RvNode(Rc::clone(&self.0))
+    }
+
+    pub fn sum(&self) -> Node {
+        F::batch::sum(F::sum(&self.0.as_ref(), 0))
     }
 }
 
@@ -80,13 +85,14 @@ impl RandomVarManager {
         self.samples.borrow_mut().insert(name, RvNode::new(sample));
     }
 
-    pub fn sum_logps(&self, prefix: &str) {
-        let sum_logp = const_node(0.0);
+    pub fn sum_logps(&self, prefix: &str) -> Node {
+        let mut terms = vec![];
 
-        for k in self.logps.keys()
-            .filter(|x| x.starts_with(prefix)) {
-            sum_logp += F::sum(self.logps.get(k).unwrap());
+        for k in self.logps.borrow().keys().filter(|x| x.starts_with(prefix)) {
+            terms.push(self.logps.borrow().get(k).unwrap().sum());
         }
+
+        F_::sum_vars(&terms)
     }
 
     pub fn process<'b>(&'b self, name: String, dist: &'b (Distribution + 'b),
@@ -140,7 +146,7 @@ impl<'a> Distribution for Normal<'a> {
     }
 
     fn sample(&self) -> Node {
-        let sample = R::normal(([2], 3), 0.0, 1.0);
+        let sample = R::normal(([], 1), 0.0, 1.0);
         F::matmul(sample, &self.std) + self.mean
     }
 }

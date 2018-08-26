@@ -150,11 +150,11 @@ fn main() {
             // Compute ELBO
             vdist(&mut rvm, ProcessMode::LOGP, &params);
             model(&mut rvm, ProcessMode::LOGP, &minibatch);
-            // TODO: Implement sum_logps()
-            //let elbo = rvm.sum_logps("model/".to_string()) - rvm.sum_logps("vdist/".to_string());
+            let elbo = rvm.sum_logps("model/") - rvm.sum_logps("vdist/");
 
             // Compute negative ELBO as loss function
-            //let loss = -1 * elbo;
+            let loss: Node = -1 * elbo;
+            println!("loss = {:?}", loss.to_float());
         }
     }
 }
