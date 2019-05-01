@@ -27,3 +27,6 @@ name = "test_rand"
 
 [[example]]
 name = "test_minibatch"
+
+[[example]]
+name = "test_ltrs"
