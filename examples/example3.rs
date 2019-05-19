@@ -166,7 +166,13 @@ fn main() {
         }
 
         if epoch % 100 == 0 {
+            let w_m = F::parameter(&mut p_w_m);
+            let w_s = F::exp(F::parameter(&mut p_w_l));
+            let b_m = F::parameter(&mut p_b_m);
+            let b_s = F::exp(F::parameter(&mut p_b_l));
             println!("epoch = {}, loss = {:?}", epoch, loss_epoch);
+            println!("w_m = {:?}, w_s = {:?}", w_m.to_float(), w_s.to_float());
+            println!("b_m = {:?}, b_s = {:?}", b_m.to_float(), b_s.to_float());
         }
     }
 }
