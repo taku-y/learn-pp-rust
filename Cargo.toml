@@ -6,6 +6,9 @@ authors = ["Taku Yoshioka <taku.yoshioka.4096@gmail.com>"]
 [dependencies]
 rand = "0.5.4"
 primitiv = { version = "0.3.0", path = "/root/primitiv-rust" }
+serde = "1.0"
+serde_derive = "1.0"
+serde_yaml = "0.8"
 
 [[example]]
 name = "example1"

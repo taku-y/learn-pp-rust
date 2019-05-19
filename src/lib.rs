@@ -41,6 +41,10 @@ impl RvNode {
     pub fn sum(&self) -> Node {
         F::batch::sum(F::sum(&self.0.as_ref(), 0))
     }
+
+    pub fn to_float(&self) -> f32 {
+        self.0.to_float()
+    }
 }
 
 impl ops::Mul<Node> for RvNode {

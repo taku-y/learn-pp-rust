@@ -1,6 +1,14 @@
 extern crate rand;
 extern crate primitiv;
 extern crate hello_world;
+extern crate serde;
+
+use std::fs::File;
+use std::io::Write;
+
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_yaml;
 
 use rand::distributions::Distribution;
 use rand::distributions::normal::Normal as NormalInRand;
@@ -27,8 +35,19 @@ struct MyMiniBatch {
 
 // Define dataset
 struct MyDataSet {
-    xs_all: Vec<f32>,
-    ys_all: Vec<f32>,
+    pub xs_all: Vec<f32>,
+    pub ys_all: Vec<f32>,
+}
+
+// Define outputs
+#[derive(Serialize)]
+struct AllResults {
+    xs: Vec<f32>,
+    ys: Vec<f32>,
+    ws: Vec<f32>,
+    bs: Vec<f32>,
+    true_w: f32,
+    true_b: f32
 }
 
 // Implement a trait for minibatch on dataset
@@ -52,7 +71,7 @@ impl MiniBatchedDataset for MyDataSet {
 // Create dataset
 fn create_dataset(n_samples: i32, true_w: f32, true_b: f32) -> MyDataSet {
     let dist_x = NormalInRand::new(0.0, 10.0);
-    let dist_e = NormalInRand::new(0.0, 0.1);
+    let dist_e = NormalInRand::new(0.0, 20.0);
     let mut rng = rand::thread_rng();
     let xs = (0..n_samples).map(|_| dist_x.sample(&mut rng) as f32).collect::<Vec<_>>();
     let es = (0..n_samples).map(|_| dist_e.sample(&mut rng) as f32).collect::<Vec<_>>();
@@ -84,7 +103,7 @@ fn model(rvm: &mut RandomVarManager, mode: ProcessMode, minibatch: &MyMiniBatch)
     let w = rvm.process("w".to_string(), &Normal::new(&const_node(0.0), &const_node(1.0)), mode);
     let b = rvm.process("b".to_string(), &Normal::new(&const_node(0.0), &const_node(1.0)), mode);
     let ys_pred = w * xs + b;
-    let _ = rvm.process("y".to_string(), &Normal::new(&ys_pred, &const_node(0.1)), mode);
+    let _ = rvm.process("y".to_string(), &Normal::new(&ys_pred, &const_node(20.0)), mode);
 }
 
 // Variational distribution
@@ -101,11 +120,11 @@ fn vdist(rvm: &mut RandomVarManager, mode: ProcessMode, params: &[&Node; 4]) {
     let _ = rvm.process("b".to_string(), &Normal::new(b_m, b_s), mode);
 }
 
-fn main() {
+fn main() -> Result<(), Box<std::error::Error>> {
     // Create sample data from a linear regression model
-    let n_samples = 100;
-    let true_w = 2.5 as f32;
-    let true_b = -1.0 as f32;
+    let n_samples = 40;
+    let true_w = 5.0 as f32;
+    let true_b = -10.0 as f32;
     let dataset = create_dataset(n_samples, true_w, true_b);
 
     // Device for primitiv
@@ -119,7 +138,7 @@ fn main() {
     let mut p_b_l = Parameter::from_initializer([], &I::Constant::new(0.01));
 
     // Optimizer
-    let mut optimizer = O::SGD::new(0.000001);
+    let mut optimizer = O::SGD::new(0.01);
     optimizer.add_parameter(&mut p_w_m);
     optimizer.add_parameter(&mut p_w_l);
     optimizer.add_parameter(&mut p_b_m);
@@ -130,7 +149,7 @@ fn main() {
     Graph::set_default(&mut g);
 
     // Inference loop
-    for epoch in 0..1000 {
+    for epoch in 0..100 {
         let mut loss_epoch = 0.0 as f32;
 
         for minibatch in MiniBatchIterator::new(20, &dataset, 0) {
@@ -165,14 +184,48 @@ fn main() {
             loss_epoch = loss.to_float();
         }
 
-        if epoch % 100 == 0 {
-            let w_m = F::parameter(&mut p_w_m);
-            let w_s = F::exp(F::parameter(&mut p_w_l));
-            let b_m = F::parameter(&mut p_b_m);
-            let b_s = F::exp(F::parameter(&mut p_b_l));
+        if epoch % 10 == 0 {
+            // let w_m = F::parameter(&mut p_w_m);
+            // let w_s = F::exp(F::parameter(&mut p_w_l));
+            // let b_m = F::parameter(&mut p_b_m);
+            // let b_s = F::exp(F::parameter(&mut p_b_l));
             println!("epoch = {}, loss = {:?}", epoch, loss_epoch);
-            println!("w_m = {:?}, w_s = {:?}", w_m.to_float(), w_s.to_float());
-            println!("b_m = {:?}, b_s = {:?}", b_m.to_float(), b_s.to_float());
+            // println!("w_m = {:?}, w_s = {:?}", w_m.to_float(), w_s.to_float());
+            // println!("b_m = {:?}, b_s = {:?}", b_m.to_float(), b_s.to_float());
         }
     }
+
+    // Variational parameters
+    let w_m = F::parameter(&mut p_w_m);
+    let w_s = F::exp(F::parameter(&mut p_w_l));
+    let b_m = F::parameter(&mut p_b_m);
+    let b_s = F::exp(F::parameter(&mut p_b_l));
+    let params = [&w_m, &w_s, &b_m, &b_s];
+
+    let mut ws = Vec::new();
+    let mut bs = Vec::new();
+
+    for _i in 0..50 {
+        // Take sample of variational parameters
+        let mut rvm = RandomVarManager::new();
+        vdist(&mut rvm, ProcessMode::SAMPLE, &params);
+        ws.push(rvm.get_sample(&"w".to_string()).to_float());
+        bs.push(rvm.get_sample(&"b".to_string()).to_float());
+    }
+
+    // All results, output to a file
+    let all_results = AllResults {
+        xs: dataset.xs_all,
+        ys: dataset.ys_all,
+        ws,
+        bs,
+        true_w, 
+        true_b, 
+    };
+
+    let mut file = File::create("result.yaml")?;
+    let data = serde_yaml::to_string(&all_results)?;
+    file.write_all(data.as_bytes())?;
+    file.flush()?;
+    Ok(())
 }

@@ -10,3 +10,7 @@
 **/*.rs.bk
 
 **/.idea
+
+result.yaml
+
+**/.ipynb_checkpoints
