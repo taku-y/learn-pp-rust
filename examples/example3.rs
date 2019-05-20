@@ -71,7 +71,7 @@ impl MiniBatchedDataset for MyDataSet {
 // Create dataset
 fn create_dataset(n_samples: i32, true_w: f32, true_b: f32) -> MyDataSet {
     let dist_x = NormalInRand::new(0.0, 10.0);
-    let dist_e = NormalInRand::new(0.0, 20.0);
+    let dist_e = NormalInRand::new(0.0, 2.0);
     let mut rng = rand::thread_rng();
     let xs = (0..n_samples).map(|_| dist_x.sample(&mut rng) as f32).collect::<Vec<_>>();
     let es = (0..n_samples).map(|_| dist_e.sample(&mut rng) as f32).collect::<Vec<_>>();
@@ -103,7 +103,7 @@ fn model(rvm: &mut RandomVarManager, mode: ProcessMode, minibatch: &MyMiniBatch)
     let w = rvm.process("w".to_string(), &Normal::new(&const_node(0.0), &const_node(1.0)), mode);
     let b = rvm.process("b".to_string(), &Normal::new(&const_node(0.0), &const_node(1.0)), mode);
     let ys_pred = w * xs + b;
-    let _ = rvm.process("y".to_string(), &Normal::new(&ys_pred, &const_node(20.0)), mode);
+    let _ = rvm.process("y".to_string(), &Normal::new(&ys_pred, &const_node(2.0)), mode);
 }
 
 // Variational distribution
@@ -122,9 +122,9 @@ fn vdist(rvm: &mut RandomVarManager, mode: ProcessMode, params: &[&Node; 4]) {
 
 fn main() -> Result<(), Box<std::error::Error>> {
     // Create sample data from a linear regression model
-    let n_samples = 40;
-    let true_w = 5.0 as f32;
-    let true_b = -10.0 as f32;
+    let n_samples = 80;
+    let true_w = 0.3 as f32;
+    let true_b = -0.5 as f32;
     let dataset = create_dataset(n_samples, true_w, true_b);
 
     // Device for primitiv
@@ -138,7 +138,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
     let mut p_b_l = Parameter::from_initializer([], &I::Constant::new(0.01));
 
     // Optimizer
-    let mut optimizer = O::SGD::new(0.01);
+    let mut optimizer = O::SGD::new(0.001);
     optimizer.add_parameter(&mut p_w_m);
     optimizer.add_parameter(&mut p_w_l);
     optimizer.add_parameter(&mut p_b_m);
@@ -174,7 +174,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
             let elbo = rvm.sum_logps("model/") - rvm.sum_logps("vdist/");
 
             // Compute negative ELBO as loss function
-            let loss: Node = -1 * elbo;
+            let loss: Node = -1 * elbo / 20;
 
             // Do optimization 1-step
             optimizer.reset_gradients();
@@ -205,7 +205,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
     let mut ws = Vec::new();
     let mut bs = Vec::new();
 
-    for _i in 0..50 {
+    for _i in 0..1000 {
         // Take sample of variational parameters
         let mut rvm = RandomVarManager::new();
         vdist(&mut rvm, ProcessMode::SAMPLE, &params);
