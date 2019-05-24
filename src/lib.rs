@@ -79,14 +79,15 @@ impl RandomVarManager {
         }
     }
 
-    pub fn get_sample(&self, name: &String) -> RvNode {
-        RvNode::clone(self.samples.borrow().get(name).
+    pub fn get_sample<T: Into<String>>(&self, name: T) -> RvNode {
+        let name = name.into();
+        RvNode::clone(self.samples.borrow().get(&name).
             expect(&format!("Sample of RV '{}' not found", name))
         )
     }
 
-    pub fn add_sample(&self, name: String, sample: Node) {
-        self.samples.borrow_mut().insert(name, RvNode::new(sample));
+    pub fn add_sample<T: Into<String>>(&self, name: T, sample: Node) {
+        self.samples.borrow_mut().insert(name.into(), RvNode::new(sample));
     }
 
     pub fn sum_logps(&self, prefix: &str) -> Node {
@@ -99,16 +100,17 @@ impl RandomVarManager {
         F_::sum_vars(&terms)
     }
 
-    pub fn process<'b>(&'b self, name: String, dist: &'b (Distribution + 'b),
-                   mode: ProcessMode) -> RvNode {
+    pub fn process<'b, T: Into<String>>(&'b self, name: T, 
+        dist: &'b (Distribution + 'b), mode: ProcessMode) -> RvNode {
+        let name = name.into();
         match mode {
             ProcessMode::SAMPLE => {
                 let sample = dist.sample();
                 self.add_sample(name.clone(), sample);
-                self.get_sample(&name)
+                self.get_sample(name.clone())
             }
             ProcessMode::LOGP => {
-                let sample = self.get_sample(&name);
+                let sample = self.get_sample(name.clone());
                 let logp = dist.logp(sample.0.as_ref());
                 let mut name_ = self.namespace_logp.to_owned();
                 name_.push_str(&name);

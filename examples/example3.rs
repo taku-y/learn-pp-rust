@@ -97,13 +97,13 @@ fn model(rvm: &mut RandomVarManager, mode: ProcessMode, minibatch: &MyMiniBatch)
     rvm.namespace_logp = "model/".to_string();
 
     // Observation
-    rvm.add_sample("y".to_string(), ys);
+    rvm.add_sample("y", ys);
 
     // Linear regression model
-    let w = rvm.process("w".to_string(), &Normal::new(&const_node(0.0), &const_node(1.0)), mode);
-    let b = rvm.process("b".to_string(), &Normal::new(&const_node(0.0), &const_node(1.0)), mode);
+    let w = rvm.process("w", &Normal::new(&const_node(0.0), &const_node(1.0)), mode);
+    let b = rvm.process("b", &Normal::new(&const_node(0.0), &const_node(1.0)), mode);
     let ys_pred = w * xs + b;
-    let _ = rvm.process("y".to_string(), &Normal::new(&ys_pred, &const_node(2.0)), mode);
+    let _ = rvm.process("y", &Normal::new(&ys_pred, &const_node(2.0)), mode);
 }
 
 // Variational distribution
@@ -116,8 +116,8 @@ fn vdist(rvm: &mut RandomVarManager, mode: ProcessMode, params: &[&Node; 4]) {
     // Set namespace when computing log probability
     rvm.namespace_logp = "vdist/".to_string();
 
-    let _ = rvm.process("w".to_string(), &Normal::new(w_m, w_s), mode);
-    let _ = rvm.process("b".to_string(), &Normal::new(b_m, b_s), mode);
+    let _ = rvm.process("w", &Normal::new(w_m, w_s), mode);
+    let _ = rvm.process("b", &Normal::new(b_m, b_s), mode);
 }
 
 fn main() -> Result<(), Box<std::error::Error>> {
@@ -209,8 +209,8 @@ fn main() -> Result<(), Box<std::error::Error>> {
         // Take sample of variational parameters
         let mut rvm = RandomVarManager::new();
         vdist(&mut rvm, ProcessMode::SAMPLE, &params);
-        ws.push(rvm.get_sample(&"w".to_string()).to_float());
-        bs.push(rvm.get_sample(&"b".to_string()).to_float());
+        ws.push(rvm.get_sample("w").to_float());
+        bs.push(rvm.get_sample("b").to_float());
     }
 
     // All results, output to a file
