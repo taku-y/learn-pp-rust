@@ -3,14 +3,25 @@ use std::f64::consts::PI;
 use tch::{kind, Tensor, manual_seed, no_grad};
 
 fn main() {
-    let sigma = Tensor::eye(8, kind::FLOAT_CPU);
-    let sigma2 = sigma.expand(&[6, 1, 8, 8], true).contiguous();
-    sigma2.requires_grad();
-    let bx = Tensor::randn(&[8000, 6, 1, 8], kind::FLOAT_CPU);
-    let bl = sigma2;
+    // let sigma = Tensor::eye(8, kind::FLOAT_CPU);
+    // let sigma2 = sigma.expand(&[6, 1, 8, 8], true).contiguous();
+    // sigma2.requires_grad();
+    // let bx = Tensor::randn(&[8000, 6, 1, 8], kind::FLOAT_CPU);
+    // let bl = sigma2;
 
-    let _ = _batch_mahalanobis(&bl, &bx);
-    let _ = _batch_mv(&bl, &bx);
+    // let _ = _batch_mahalanobis(&bl, &bx);
+    // let _ = _batch_mv(&bl, &bx);
+
+    _test_rsample1();
+}
+
+fn _test_rsample1() {
+    let loc = Tensor::of_slice(&[1.0f32, 2.0]);
+    let scale = Tensor::of_slice(&[1.0f32, 0.0, -0.5, 2.0]).reshape(&[2, 2]);
+    let dist = MultivariateNormal::new(loc, Scale::ScaleTril(scale));
+    let xs = dist.rsample(&[5, 4]);
+
+    xs.print();
 }
 
 fn _batch_mv(bmat: &Tensor, bvec: &Tensor) -> Tensor {
@@ -243,6 +254,7 @@ impl Distribution for MultivariateNormal {
     fn rsample(&self, sample_shape: &[i64]) -> Tensor {
         let shape = self._extended_shape(sample_shape);
         let eps = Tensor::randn(shape.as_slice(), kind::FLOAT_CPU);
+        // eps.print(); // for debug
         &self.loc + _batch_mv(&self._unbroadcasted_scale_tril, &eps)
     }
 
@@ -281,7 +293,7 @@ impl MultivariateNormal {
             _event_shape: [loc.size()[loc.ld()]].to_vec(),
             loc, 
             scale,
-            _unbroadcasted_scale_tril,
+            _unbroadcasted_scale_tril
         }
     }
 
