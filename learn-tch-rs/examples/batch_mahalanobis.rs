@@ -13,6 +13,7 @@ fn main() {
     // let _ = _batch_mv(&bl, &bx);
 
     _test_rsample1();
+    _test_log_prob();
 }
 
 fn _test_rsample1() {
@@ -22,6 +23,21 @@ fn _test_rsample1() {
     let xs = dist.rsample(&[5, 4]);
 
     xs.print();
+}
+
+fn _test_log_prob() {
+    let loc = Tensor::of_slice(&[1.0f32, 2.0]);
+    let scale = Tensor::of_slice(&[1.0f32, 0.0, -0.5, 2.0]).reshape(&[2, 2]);
+    let dist = MultivariateNormal::new(loc, Scale::ScaleTril(scale));
+
+    let s = Tensor::arange2(-2.0, 2.0, 0.1, kind::FLOAT_CPU);
+    let xs = s.reshape(&[-1, 1]).ones_like().matmul(&s.reshape(&[1, -1]));
+    let ys = xs.transpose(0, 1);
+    let xys = Tensor::stack(&[&xs.reshape(&[-1]), &ys.reshape(&[-1])], 1);
+    let lp = dist.log_prob(&xys).reshape(&xs.size());
+
+    let f = "test_log_prob.npz";
+    Tensor::write_npz(&[("xs", xs), ("ys", ys), ("lp", lp)], f);
 }
 
 fn _batch_mv(bmat: &Tensor, bvec: &Tensor) -> Tensor {
