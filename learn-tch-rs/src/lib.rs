@@ -58,20 +58,20 @@ fn _batch_mahalanobis(bl: &Tensor, bx: &Tensor) -> Tensor {
     let reshaped_m = permuted_m.permute(permute_inv_dims.as_slice()); // shape = (..., 1, i, j, 1)
     let reshaped_m = reshaped_m.reshape(bx_batch_shape);
 
-    println!("n                  = {}", n);
-    println!("bx_batch_shape     = {:?}", bx_batch_shape);
-    println!("bL_batch_dims      = {}", bl_batch_dims);
-    println!("outer_batch_dims   = {}", outer_batch_dims);
-    println!("old_batch_dims     = {}", old_batch_dims);
-    println!("new_batch_dims     = {}", new_batch_dims);
-    println!("bx_new_shape       = {:?}", bx_new_shape);
-    println!("permute_dims       = {:?}", permute_dims);
-    println!("flat_L.size()      = {:?}", flat_l.size());
-    println!("flat_x.size()      = {:?}", flat_x.size());
-    println!("flat_x_swap.size() = {:?}", flat_x_swap.size());
-    println!("M_swap.size()      = {:?}", m_swap.size());
-    println!("M.size()           = {:?}", m.size());
-    println!("reshaped_M.size()  = {:?}", reshaped_m.size());
+    // println!("n                  = {}", n);
+    // println!("bx_batch_shape     = {:?}", bx_batch_shape);
+    // println!("bL_batch_dims      = {}", bl_batch_dims);
+    // println!("outer_batch_dims   = {}", outer_batch_dims);
+    // println!("old_batch_dims     = {}", old_batch_dims);
+    // println!("new_batch_dims     = {}", new_batch_dims);
+    // println!("bx_new_shape       = {:?}", bx_new_shape);
+    // println!("permute_dims       = {:?}", permute_dims);
+    // println!("flat_L.size()      = {:?}", flat_l.size());
+    // println!("flat_x.size()      = {:?}", flat_x.size());
+    // println!("flat_x_swap.size() = {:?}", flat_x_swap.size());
+    // println!("M_swap.size()      = {:?}", m_swap.size());
+    // println!("M.size()           = {:?}", m.size());
+    // println!("reshaped_M.size()  = {:?}", reshaped_m.size());
 
     // return reshaped_M.reshape(bx_batch_shape)
     reshaped_m
@@ -213,7 +213,7 @@ impl Distribution for MultivariateNormal {
             Scale::ScaleTril(s) => Scale::ScaleTril(s.expand(cov_shape.as_slice(), false)), // TODO: check meaning of implicit
             _ => unimplemented!()
         };
-        MultivariateNormal::new(loc, scale)
+        MultivariateNormal::new(&loc, &scale)
     }
     // below code not ported from pytorch:
     //
@@ -251,16 +251,16 @@ impl Distribution for MultivariateNormal {
 }
 
 impl MultivariateNormal {
-    pub fn new(loc_: Tensor, scale_: Scale) -> Self {
+    pub fn new(loc_: &Tensor, scale_: &Scale) -> Self {
         let mut loc = loc_.unsqueeze(-1);
         let scale;
         let _unbroadcasted_scale_tril;
 
         if let Scale::ScaleTril(s) = scale_ {
-            let mut tmp = Tensor::broadcast_tensors(&[&s, &loc]);
+            let mut tmp = Tensor::broadcast_tensors(&[s, &loc]);
             loc = _drop_rightmost_dim(tmp.pop().unwrap());
             scale = Scale::ScaleTril(tmp.pop().unwrap());
-            _unbroadcasted_scale_tril = s;
+            _unbroadcasted_scale_tril = s.shallow_clone();
         }
         else {
             unimplemented!();
