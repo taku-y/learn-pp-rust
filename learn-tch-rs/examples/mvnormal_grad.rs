@@ -1,8 +1,9 @@
 extern crate tch;
 use tch::{nn, Tensor, nn::OptimizerConfig, 
           Device, nn::Init as Init};
-use hello::{Distribution, MultivariateNormal, Scale};
-use hello::lower_cholesky_transform::{transform};
+use hello::{Distribution};
+use hello::multivariate_normal::{MultivariateNormal, Scale};
+use hello::multivariate_normal::lower_cholesky_transform::transform;
 
 fn _gen_samples() -> Tensor {
     let loc = Tensor::of_slice(&[1.0f32, 2.0]);
