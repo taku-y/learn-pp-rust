@@ -1,15 +1,14 @@
 extern crate tch;
-use tch::{nn, kind, Tensor, manual_seed, no_grad, nn::OptimizerConfig, 
+use tch::{nn, Tensor, nn::OptimizerConfig, 
           Device, nn::Init as Init};
 use hello::{Distribution, MultivariateNormal, Scale};
+use hello::lower_cholesky_transform::{transform};
 
 fn _gen_samples() -> Tensor {
     let loc = Tensor::of_slice(&[1.0f32, 2.0]);
     let scale = Tensor::of_slice(&[1.0f32, 0.0, -0.5, 2.0]).reshape(&[2, 2]);
     let dist = MultivariateNormal::new(&loc, &Scale::ScaleTril(scale));
-    let xs = dist.rsample(&[5, 4]);
-
-    xs
+    dist.rsample(&[5])
 }
 
 fn main() {
@@ -19,10 +18,12 @@ fn main() {
     let sc = &vs.root().var("scale", &[2, 2], Init::KaimingUniform);
     let opt = nn::Adam::default().build(&vs, 1e-3).unwrap();
 
-    for _i in 0..10000000 {
+    for _i in 0..10 {
         let p = MultivariateNormal::new(
-            lc, &Scale::ScaleTril(sc.shallow_clone())
+            lc, &Scale::ScaleTril(transform(&sc).shallow_clone())
         );
-        let loss = p.log_prob(&xs);
+        let loss = -p.log_prob(&xs).mean();
+        println!("{}", f64::from(&loss));
+        opt.backward_step(&loss);
     }
 }

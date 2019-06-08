@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 tch = { path = "../../tch-rs" }
+cute = "0.3.0"

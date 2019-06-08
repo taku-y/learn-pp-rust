@@ -1,6 +1,9 @@
 extern crate tch;
 use std::f64::consts::PI;
-use tch::{kind, Tensor, manual_seed, no_grad};
+use tch::{kind, Tensor, no_grad};
+
+#[macro_use(c)]
+extern crate cute;
 
 fn _batch_mv(bmat: &Tensor, bvec: &Tensor) -> Tensor {
     bmat.matmul(&bvec.unsqueeze(-1)).squeeze1(-1)
@@ -88,14 +91,19 @@ fn _drop_rightmost_dim(t: Tensor) -> Tensor {
     t.reshape(&t.size().as_slice()[..t.ld()])
 }
 
-trait TensorUtil {
+pub trait TensorUtil {
     /// Last dimension
     fn ld(&self) -> usize;
+    fn eshape(&self, i: usize) -> Vec<i64>;
 }
 
 impl TensorUtil for Tensor {
     fn ld(&self) -> usize {
         self.size().len() - 1
+    }
+
+    fn eshape(&self, i: usize) -> Vec<i64> {
+        self.size()[&self.dim() - i ..].to_vec()
     }
 }
 
@@ -240,7 +248,7 @@ impl Distribution for MultivariateNormal {
         let diff = value - &self.loc;
         let m = _batch_mahalanobis(&self._unbroadcasted_scale_tril, &diff);
         let half_log_det = self._unbroadcasted_scale_tril
-            .diagonal(0, -2, -1).log().sum2(&[-1], false);        
+            .diagonal(0, -2, -1).log().sum2(&[-1], false);
         -0.5 * (self._event_shape[0] as f64 * f64::ln(2.0 * PI) + m)
         - half_log_det
     }
@@ -324,3 +332,52 @@ impl MultivariateNormal {
 //                                 scipy.stats.multivariate_normal(mean.detach().numpy(), cov.detach().numpy()),
 //                                 'MultivariateNormal(loc={}, scale_tril={})'.format(mean, scale_tril),
 //                                 multivariate=True)
+
+// class LowerCholeskyTransform(Transform):
+//     """
+//     Transform from unconstrained matrices to lower-triangular matrices with
+//     nonnegative diagonal entries.
+
+//     This is useful for parameterizing positive definite matrices in terms of
+//     their Cholesky factorization.
+//     """
+//     domain = constraints.real
+//     codomain = constraints.lower_cholesky
+//     event_dim = 2
+
+//     def __eq__(self, other):
+//         return isinstance(other, LowerCholeskyTransform)
+
+//     def _call_on_event(self, x):
+//         return x.tril(-1) + x.diag().exp().diag()
+
+//     def _inverse_on_event(self, y):
+//         return y.tril(-1) + y.diag().log().diag()
+
+//     def _call(self, x):
+//         flat_x = x.contiguous().view((-1,) + x.shape[-2:])
+//         return torch.stack([self._call_on_event(flat_x[i]) for i in range(flat_x.size(0))]).view(x.shape)
+
+//     def _inverse(self, y):
+//         flat_y = y.contiguous().view((-1,) + y.shape[-2:])
+//         return torch.stack([self._inverse_on_event(flat_y[i]) for i in range(flat_y.size(0))]).view(y.shape)
+
+
+pub mod lower_cholesky_transform {
+    use tch::{Tensor};
+    use crate::{TensorUtil};
+
+    fn _call_on_event(x: &Tensor) -> Tensor {
+        x.tril(-1) + x.diag(0).exp().diagflat(0)
+    }
+
+    pub fn transform(x: &Tensor) -> Tensor {
+        let flat_shape = [vec![-1], x.eshape(2)].concat();
+        let flat_x = x.contiguous().view(flat_shape.as_slice());
+        let n = flat_x.size()[0];
+        Tensor::stack(
+            &c![_call_on_event(&flat_x.slice(0, i, i + 1, 1).squeeze()),
+                for i in 0..n], 0
+        ).view(&x.size())
+    }
+}
