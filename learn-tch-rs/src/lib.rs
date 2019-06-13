@@ -117,3 +117,4 @@ pub trait Distribution {
 }
 
 pub mod multivariate_normal;
+pub mod plotly_evcxr;
