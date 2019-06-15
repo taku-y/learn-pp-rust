@@ -116,5 +116,25 @@ pub trait Distribution {
     fn perplexity(&self) -> Tensor { Tensor::exp(&self.entropy()) }
 }
 
+pub fn log_prob_2d(d: &impl Distribution, xs: &[f32], ys: &[f32])
+    -> Vec<f32> {
+    let mut xys = vec![];
+    let ny = ys.len() as i64;
+    let nx = xs.len() as i64;
+
+    for y in ys {
+        for x in xs {
+            xys.push(*x);
+            xys.push(*y);
+        }
+    }
+    // println!("{:?}", &xys);
+
+    let xys = Tensor::from(xys.as_slice()).reshape(&[-1, 2]);
+    let lps = d.log_prob(&xys);
+
+    Vec::<f32>::from(&lps)
+}
+
 pub mod multivariate_normal;
 pub mod plotly_evcxr;
