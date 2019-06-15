@@ -3,12 +3,6 @@ use std::collections::HashMap;
 use ndarray::{Array1, Array2};
 
 #[macro_export]
-macro_rules! plyvalue {
-    ( A1($val:expr) ) => ( Value::A1($val) );
-    ( S($val:expr) ) => ( Value::S($val.into()) );
-}
-
-#[macro_export]
 macro_rules! plydata {
     ($( $key:expr => $val:expr ),+) => {{
         let mut map = ::std::collections::HashMap::<String, _>::new();
