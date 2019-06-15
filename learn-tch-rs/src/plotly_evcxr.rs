@@ -2,6 +2,21 @@ extern crate ndarray;
 use std::collections::HashMap;
 use ndarray::{Array1, Array2};
 
+#[macro_export]
+macro_rules! plyvalue {
+    ( A1($val:expr) ) => ( Value::A1($val) );
+    ( S($val:expr) ) => ( Value::S($val.into()) );
+}
+
+#[macro_export]
+macro_rules! plydata {
+    ($( $key:expr => $val:expr ),+) => {{
+        let mut map = ::std::collections::HashMap::<String, _>::new();
+        $( map.insert($key.into(), $val); )+
+        PlotlyData(map)
+    }};
+}
+
 pub enum Value {
     A1(Array1<f32>),
     A2(Array2<f32>),
@@ -66,3 +81,4 @@ pub fn plotly_plot(data: &PlotlyData) {
     // println!("{}", &html);
     println!("EVCXR_BEGIN_CONTENT text/html\n{}\nEVCXR_END_CONTENT", html);
 }
+
