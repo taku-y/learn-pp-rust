@@ -28,15 +28,17 @@ use tch::{Tensor, kind};
 /// Poses `x` is batched for particles. Its size is (n, 3), 
 /// where n is the number of particles. The size of scan points, 
 /// which is the return value, is (n, n_dirs, max_step, 2).
-/// n_dirs is the number of scan directions: length of `dirs`. 
-/// The last dimension is for x and y coordinate of the map.
+/// n_dirs is the number of scan directions: length of `dirs`.
+/// `max_step` is `int(max_range / step_size)`, which is determined by
+/// `Tensor::arange2()`. The last dimension is for x and y coordinate of
+/// the map.
 /// 
 /// # Arguments
 /// * `xs` - Poses of the agent: (x, y, theta)
 /// * `step_size` - Step size for scan
 /// * `max_range` - Maximum scanning range
 /// * `dirs` - Scan directions in radian
-pub fn scan_points(xs: &Tensor, step_size: f64, max_range: f64, dirs: &Tensor)
+fn scan_points(xs: &Tensor, step_size: f64, max_range: f64, dirs: &Tensor)
     -> Tensor {
     let n = xs.size()[0];
     let n_dirs = dirs.size()[0];
@@ -66,9 +68,44 @@ pub fn scan_points(xs: &Tensor, step_size: f64, max_range: f64, dirs: &Tensor)
     dxys + xs
 }
 
+/// Collision check based on given log probability
+/// 
+/// Argument `lps` is log probabilities of scan points.
+/// It can be occupancy grid values of a simulated map. In this case,
+/// the values would be `log(1)=0` or `log(small_val)`, because occupancy
+/// values woule be binalized. The size of `lps` is (n, n_dirs, max_step), 
+/// where `n` is the batch size, `n_dirs` is the number of scan directions and
+/// `max_step` is the number of scan steps (see `scan_points()`).
+/// 
+/// The size of the return value of this function is (n, n_dirs).
+/// It contains the minimum value of the scan index, whose log probability
+/// is greater than the threshold `threshold_lp`, in each direction.
+/// You would multiply `step_size` with these indices in order to get the
+/// distance where collision happens. It's precision is up to `step_size`.
+fn check_collision(lps: &Tensor, threshold_lp: f64) -> Tensor {
+    let n = lps.size()[0];
+    let n_dirs = lps.size()[1];
+    let mut buf = vec![0.0 as f32; (n * n_dirs) as usize];
+
+    for i in 0..n {
+        let lps_i = lps.slice(0, i, i + 1, 1).squeeze();
+
+        for j in 0..n_dirs {
+            // Get vector of length max_steps
+            let lps_ij = lps_i.slice(0, j, j + 1, 1);
+
+            // Collision check for each scan (direction)
+            let ix = lps_ij.ge(threshold_lp).nonzero().min().double_value(&[]);
+            buf.push(ix as f32);
+        }
+    }
+
+    Tensor::of_slice(buf.as_slice()).reshape(&[n, n_dirs])
+}
+
 #[cfg(test)]
 mod tests {
-    // TODO: is importing here ideomatic?
+    // TODO: is importing here idiomatic?
     use tch::{Tensor};
     use crate::scan_points;
 
