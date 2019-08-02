@@ -8,3 +8,5 @@ edition = "2018"
 tch = { path = "../../tch-rs" }
 ndarray = "0.12.1"
 cute = "0.3.0"
+csv = "1.1"
+ndarray-csv = "0.3.1"
