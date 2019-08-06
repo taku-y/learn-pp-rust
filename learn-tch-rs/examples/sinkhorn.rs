@@ -9,6 +9,23 @@ use ndarray::s;
 use ndarray_csv::Array2Reader;
 use tch::{Tensor, kind};
 
+// https://users.rust-lang.org/t/rusts-equivalent-of-cs-system-pause/4494/3
+fn pause() {
+    use std::io;
+    use std::io::prelude::*;
+
+    let mut stdin = io::stdin();
+    let mut stdout = io::stdout();
+
+    // We want the cursor to stay at the end of the line, so we print without a newline and flush manually.
+    write!(stdout, "Press any key to continue...").unwrap();
+    stdout.flush().unwrap();
+
+    // Read a single byte and discard
+    let _ = stdin.read(&mut [0u8]).unwrap();
+}
+
+
 struct SinkhornDistance {
     eps: f32,
     max_iter: usize
@@ -26,8 +43,10 @@ impl SinkhornDistance {
         };
 
         // both marginals are fixed with equal weights
-        let mu = Tensor::empty(&[batch_size as i64, x_points], kind::FLOAT_CPU);
-        let nu = Tensor::empty(&[batch_size as i64, y_points], kind::FLOAT_CPU);
+        let mu = Tensor::empty(&[batch_size as i64, x_points], kind::FLOAT_CPU)
+            .fill_(1.0 / x_points as f64).squeeze();
+        let nu = Tensor::empty(&[batch_size as i64, y_points], kind::FLOAT_CPU)
+            .fill_(1.0 / y_points as f64).squeeze();
         let mut u = mu.zeros_like();
         let mut v = nu.zeros_like();
 
@@ -38,14 +57,18 @@ impl SinkhornDistance {
         let thresh = 1e-1;
 
         // Sinkhorn iterations
+        let eps = Tensor::from(self.eps as f64);
+        let log_mu = (&mu + 1e-8).log();
+        let log_nu = (&nu + 1e-8).log();
+
         for _i in 0..self.max_iter {
+            // v.print();
+            // pause();
             let u1 = u.shallow_clone();
             let m = self.m(&c, &u, &v);
-            let eps = Tensor::from(self.eps as f64);
-            let d = m.dim() as i64;
-            u = &eps * (1e-8 * &mu).log() - m.logsumexp(&[d - 1], false) + &u;
-            v = &eps * (1e-8 * &nu).log()
-                - m.transpose(d - 2, d - 1).logsumexp(&[d - 1], false) * &v;
+            u = &eps * (&log_mu - m.logsumexp(&[-1], false)) + &u;
+            let m = self.m(&c, &u, &v).transpose(-2, -1);
+            v = &eps * (&log_nu - m.logsumexp(&[-1], false)) + &v;
             let err = f32::from((&u - &u1).abs().sum2(&[-1], false).mean());
 
             // actual_nits += 1;
@@ -85,7 +108,7 @@ fn main() {
     let ys;
 
     if &args[1] == "moon" {
-        println!("Moon");
+        println!("Moon data");
         // Moon data
         let file = File::open("moon.csv").expect("opening file failed");
         let mut reader = ReaderBuilder::new().has_headers(false).from_reader(file);
@@ -98,17 +121,19 @@ fn main() {
     }
     else {
         // Simple data
+        println!("Simple data");
         xs = Tensor::of_slice(&[0.0 as f32, 0.0, 1.0, 0.0, 2.0, 0.0, 3.0, 0.0, 4.0, 0.0])
             .reshape(&[5, 2]);
         ys = Tensor::of_slice(&[0.0 as f32, 1.0, 1.0, 1.0, 2.0, 1.0, 3.0, 1.0, 4.0, 1.0])
             .reshape(&[5, 2]);
     }
 
-    // println!("{}", xs);
     let d = SinkhornDistance {
-        eps: 0.1,
+        eps: 1.0,
         max_iter: 100
     };
     let (cost, _pi, _c) = d.forward_t(&xs, &ys);
-    println!("{}", f32::from(cost));
+    _c.print();
+    _pi.print();
+    println!("dist = {}", f32::from(cost));
 }
